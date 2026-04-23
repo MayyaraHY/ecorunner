@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sort the Trash - EcoRunner 🌿</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@400;700;900&display=swap');
+:root {
+  --pixel:'Press Start 2P',monospace;
+  --body:'Nunito',sans-serif;
+  --green:#4CAF50; --yellow:#f1c40f; --red:#e74c3c;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  background:#1a1a2e;display:flex;align-items:center;justify-content:center;
+  min-height:100vh;font-family:var(--body);overflow:hidden;
+}
+#gameWrapper{
+  position:relative;width:800px;height:400px;
+  border:3px solid #fff;
+  box-shadow:0 0 40px rgba(76,175,80,.4),0 0 80px rgba(76,175,80,.1);
+  border-radius:4px;overflow:hidden;
+}
+#sortScreen{
+  background:linear-gradient(180deg,#5BA4CF 0%,#87CEEB 50%,#4a7a30 100%);
+  position:relative;width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;
+}
+#sortCanvas{
+  flex:1;display:block;background:linear-gradient(180deg,#87CEEB 0%,#4a7a30 100%);
+}
+#binsRow{
+  position:absolute;top:80px;left:50%;transform:translateX(-50%);
+  display:grid;grid-template-columns:1fr 1fr;gap:40px;
+  width:360px;z-index:5;
+}
+.bin-wrapper{display:flex;flex-direction:column;align-items:center;}
+.fp-bin-lid{
+  width:120px;height:16px;
+  background:linear-gradient(180deg,#888 0%,#555 100%);
+  border:3px solid #777;border-radius:6px;margin-bottom:-3px;
+  transition:border-color .15s,background .15s;
+}
+.fp-bin{
+  width:110px;height:100px;
+  background:linear-gradient(180deg,#5a5a5a 0%,#333 100%);
+  border:3px solid #777;border-radius:8px 8px 4px 4px;
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:flex-start;padding-top:8px;
+  cursor:pointer;transition:border-color .15s,box-shadow .15s;
+  position:relative;user-select:none;
+}
+.fp-bin:hover,.fp-bin.drag-over{
+  border-color:#4CAF50;box-shadow:0 0 16px rgba(76,175,80,.65);
+}
+.fp-bin.drag-over .fp-bin-lid{border-color:#4CAF50;}
+.bin-wrapper:hover .fp-bin-lid{border-color:#4CAF50;background:linear-gradient(180deg,#aaa 0%,#777 100%);}
+.fp-bin.wrong-flash{
+  border-color:#e74c3c;box-shadow:0 0 16px rgba(231,76,60,.7);
+  animation:bShake .3s;
+}
+@keyframes bShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.fp-bin.correct-flash{border-color:#4CAF50;box-shadow:0 0 24px rgba(76,175,80,1);}
+.fp-bin-icon{font-size:28px;margin-bottom:2px;pointer-events:none;}
+.fp-bin-label{
+  font-family:var(--pixel);font-size:6px;color:#fff;
+  text-align:center;line-height:1.4;pointer-events:none;
+}
+.fp-bin-count{
+  position:absolute;top:4px;right:6px;
+  font-family:var(--pixel);font-size:6px;color:#f1c40f;background:rgba(0,0,0,.7);padding:1px 3px;border-radius:3px;
+}
+#sortQueueBar{
+  position:absolute;bottom:0;left:0;right:0;height:110px;
+  background:rgba(0,0,0,.95);
+  border-top:3px solid #4CAF50;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:6px;
+  padding:8px 20px;
+  z-index:10;
+}
+.q-bar-label{font-family:var(--pixel);font-size:8px;color:#4CAF50;letter-spacing:1px;margin-bottom:2px;}
+#queueItems{
+  display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;
+  max-width:750px;overflow-y:auto;max-height:55px;
+}
+.q-item{
+  font-size:32px;
+  background:rgba(76,175,80,.15);
+  border:2px solid #4CAF50;
+  border-radius:6px;padding:4px 8px;
+  cursor:grab;transition:all .15s;user-select:none;flex-shrink:0;
+}
+.q-item:hover{background:rgba(76,175,80,.3);}
+.q-item:active{cursor:grabbing;}
+.q-item.held{
+  border-color:#f1c40f;background:rgba(241,196,15,.35);
+  transform:scale(1.3);box-shadow:0 0 12px rgba(241,196,15,.6);
+}
+.q-item.sorted{opacity:.2;pointer-events:none;transform:scale(.8);}
+#sortInstruct{font-family:var(--pixel);font-size:6px;color:#888;text-align:center;margin-top:2px;}
+#dragGhost{
+  position:fixed;font-size:36px;pointer-events:none;
+  z-index:999;display:none;transform:translate(-50%,-50%);
+}
+#factToast{
+  position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%) scale(.85);
+  background:rgba(10,10,10,.97);
+  border:2px solid #f1c40f;border-radius:10px;
+  padding:14px 22px;font-size:13px;color:#fff;
+  max-width:380px;text-align:center;
+  opacity:0;transition:opacity .25s,transform .25s;
+  z-index:30;pointer-events:none;
+}
+#factToast.show{opacity:1;transform:translate(-50%,-50%) scale(1);}
+#factToast .fact-label{
+  font-family:var(--pixel);font-size:7px;color:#f1c40f;
+  display:block;margin-bottom:8px;letter-spacing:1px;
+}
+#endScreen{
+  position:absolute;inset:0;background:linear-gradient(160deg,#0f3460,#16213e);
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  z-index:25;
+}
+#endScreen h2{font-family:var(--pixel);font-size:15px;color:#f1c40f;margin-bottom:4px;}
+.grade-badge{font-family:var(--pixel);font-size:52px;margin:8px 0;text-shadow:0 0 30px currentColor;}
+.grade-S{color:#f1c40f}.grade-A{color:#4CAF50}.grade-B{color:#3498db}.grade-C{color:#e67e22}
+.end-stats{font-size:13px;color:#ccc;line-height:2.1;text-align:center;margin-bottom:12px;}
+.end-stats strong{color:#fff;}
+.end-message{font-family:var(--pixel);font-size:8px;color:#4CAF50;text-align:center;margin-bottom:18px;line-height:1.9;max-width:420px;}
+.btn-row{display:flex;gap:12px;}
+.btn-outline{
+  font-family:var(--pixel);font-size:8px;background:transparent;
+  color:#4CAF50;border:2px solid #4CAF50;padding:10px 18px;
+  border-radius:6px;cursor:pointer;transition:all .2s;
+}
+.btn-outline:hover{background:#4CAF50;color:#fff;}
+.btn-start{
+  font-family:var(--pixel);font-size:10px;background:#4CAF50;
+  color:#fff;border:none;padding:14px 30px;border-radius:6px;
+  cursor:pointer;transition:all .2s;letter-spacing:1px;
+}
+.btn-start:hover{background:#43a047;transform:scale(1.05);}
+</style>
+</head>
+<body>
+<div id="gameWrapper">
+  <div id="sortScreen">
+    <canvas id="sortCanvas" width="800" height="290"></canvas>
+    
+    <div id="binsRow">
+      <div class="bin-wrapper">
+        <div class="fp-bin-lid" id="lid0"></div>
+        <div class="fp-bin" id="fpBin0" data-bin="0"
+          ondragover="onBinDragOver(event,0)" ondragleave="onBinDragLeave(0)"
+          ondrop="onBinDrop(event,0)" onclick="onBinClick(0)">
+          <span class="fp-bin-count" id="binCount0">0</span>
+          <span class="fp-bin-icon">🧴</span>
+          <span class="fp-bin-label">PLASTIC</span>
+        </div>
+      </div>
+      <div class="bin-wrapper">
+        <div class="fp-bin-lid" id="lid1"></div>
+        <div class="fp-bin" id="fpBin1" data-bin="1"
+          ondragover="onBinDragOver(event,1)" ondragleave="onBinDragLeave(1)"
+          ondrop="onBinDrop(event,1)" onclick="onBinClick(1)">
+          <span class="fp-bin-count" id="binCount1">0</span>
+          <span class="fp-bin-icon">📄</span>
+          <span class="fp-bin-label">PAPER</span>
+        </div>
+      </div>
+      <div class="bin-wrapper">
+        <div class="fp-bin-lid" id="lid2"></div>
+        <div class="fp-bin" id="fpBin2" data-bin="2"
+          ondragover="onBinDragOver(event,2)" ondragleave="onBinDragLeave(2)"
+          ondrop="onBinDrop(event,2)" onclick="onBinClick(2)">
+          <span class="fp-bin-count" id="binCount2">0</span>
+          <span class="fp-bin-icon">🍾</span>
+          <span class="fp-bin-label">GLASS</span>
+        </div>
+      </div>
+      <div class="bin-wrapper">
+        <div class="fp-bin-lid" id="lid3"></div>
+        <div class="fp-bin" id="fpBin3" data-bin="3"
+          ondragover="onBinDragOver(event,3)" ondragleave="onBinDragLeave(3)"
+          ondrop="onBinDrop(event,3)" onclick="onBinClick(3)">
+          <span class="fp-bin-count" id="binCount3">0</span>
+          <span class="fp-bin-icon">🥕</span>
+          <span class="fp-bin-label">FOOD</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="sortQueueBar">
+      <span class="q-bar-label">📦 INVENTORY — DRAG ITEMS TO SORT</span>
+      <div id="queueItems"></div>
+      <div id="sortInstruct">Drag trash to the correct bin above</div>
+    </div>
+  </div>
+
+  <div id="endScreen">
+    <h2>RUN COMPLETE!</h2>
+    <div class="grade-badge" id="gradeBadge">A</div>
+    <div class="end-stats" id="endStats"></div>
+    <div class="end-message" id="endMessage"></div>
+    <div class="btn-row">
+      <button class="btn-outline" onclick="goHome()">PLAY AGAIN</button>
+      <button class="btn-start" onclick="window.close()">EXIT</button>
+    </div>
+  </div>
+
+  <div id="factToast"><span class="fact-label">♻️ ECO FACT</span><span id="factText"></span></div>
+</div>
+<div id="dragGhost"></div>
+
+<script>
+const TYPES=[
+  {type:'plastic',emoji:'🧴',bin:0,fact:'♻️ Plastic takes 400+ years to decompose in landfills.'},
+  {type:'paper',  emoji:'📰',bin:1,fact:'🌲 Recycling paper saves trees and cuts water use by 50%.'},
+  {type:'glass',  emoji:'🍾',bin:2,fact:'💡 Glass can be recycled endlessly without losing quality.'},
+  {type:'food',   emoji:'🍎',bin:3,fact:'🌱 Food scraps can be composted into rich, healthy soil.'},
+];
+
+let sortItems=[];
+let dragSrcIdx=-1;
+let sortAnimFrame=0;
+let gameData={selectedChar:0,collectedItems:[],score:0};
+let sortCorrect=0,sortWrong=0,binCounts=[0,0,0,0];
+let factTmr=null;
+
+const canvas=document.getElementById('sortCanvas');
+const ctx=canvas.getContext('2d');
+
+function px(c,x,y,w,h,col){c.fillStyle=col;c.fillRect(~~x,~~y,w,h);}
+
+function drawAlex(c,x,y,f){
+  const l=f%2;
+  px(c,x+8,y+20,24,20,'#3498db');
+  px(c,x+8,y+8,24,12,'#FFDAB9');
+  px(c,x+8,y+4,24,6,'#5D3A1A');
+  px(c,x+12,y+11,4,4,'#111');px(c,x+22,y+11,4,4,'#111');
+  px(c,x+14,y+17,12,2,'#c0392b');
+  px(c,x+2,y+20,8,16,'#FFDAB9');px(c,x+30,y+20,8,16,'#FFDAB9');
+  if(l===0){px(c,x+8,y+40,10,18,'#2c3e50');px(c,x+22,y+40,10,14,'#2c3e50');px(c,x+8,y+56,10,6,'#111');px(c,x+22,y+52,10,6,'#111');}
+  else{px(c,x+8,y+40,10,14,'#2c3e50');px(c,x+22,y+40,10,18,'#2c3e50');px(c,x+8,y+52,10,6,'#111');px(c,x+22,y+56,10,6,'#111');}
+}
+function drawMaya(c,x,y,f){
+  const l=f%2;
+  px(c,x+8,y+20,24,20,'#27ae60');
+  px(c,x+8,y+6,24,14,'#FFDAB9');
+  px(c,x+6,y+4,28,7,'#111');px(c,x+6,y+4,6,24,'#111');px(c,x+28,y+4,6,24,'#111');
+  px(c,x+12,y+12,4,4,'#111');px(c,x+22,y+12,4,4,'#111');
+  px(c,x+14,y+17,12,3,'#e74c3c');
+  px(c,x+2,y+20,8,16,'#FFDAB9');px(c,x+30,y+20,8,16,'#FFDAB9');
+  if(l===0){px(c,x+8,y+40,10,18,'#8e44ad');px(c,x+22,y+40,10,14,'#8e44ad');px(c,x+8,y+56,10,6,'#111');px(c,x+22,y+52,10,6,'#111');}
+  else{px(c,x+8,y+40,10,14,'#8e44ad');px(c,x+22,y+40,10,18,'#8e44ad');px(c,x+8,y+52,10,6,'#111');px(c,x+22,y+56,10,6,'#111');}
+}
+function drawChar(c,idx,x,y,f){idx===0?drawAlex(c,x,y,f):drawMaya(c,x,y,f);}
+
+function renderSortCanvas(){
+  const W=800,H=290;
+  
+  const sky=ctx.createLinearGradient(0,0,0,H*0.6);
+  sky.addColorStop(0,'#5BA4CF');sky.addColorStop(1,'#87CEEB');
+  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H*0.6);
+  
+  const ground=ctx.createLinearGradient(0,H*0.6,0,H);
+  ground.addColorStop(0,'#4a7a30');ground.addColorStop(1,'#3d6b27');
+  ctx.fillStyle=ground;ctx.fillRect(0,H*0.6,W,H*0.4);
+  
+  ctx.fillStyle='rgba(255,220,100,.4)';
+  ctx.beginPath();ctx.arc(W-60,50,45,0,Math.PI*2);ctx.fill();
+  
+  const charX=W/2-20,charY=H*0.55-62;
+  drawChar(ctx,gameData.selectedChar,charX,charY,sortAnimFrame%2);
+  
+  ctx.fillStyle='rgba(0,0,0,.25)';
+  ctx.beginPath();ctx.ellipse(charX+20,H*0.55+6,30,8,0,0,Math.PI*2);ctx.fill();
+  
+  ctx.fillStyle='#fff';
+  ctx.font='bold 14px "Press Start 2P",monospace';
+  ctx.textAlign='center';
+  ctx.textBaseline='top';
+  ctx.fillText('SORT THE TRASH!',W/2,20);
+}
+
+function buildSortQueue(){
+  sortItems=gameData.collectedItems.map(ti=>({ti,done:false,el:null}));
+  const con=document.getElementById('queueItems');
+  con.innerHTML='';
+  if(!sortItems.length){
+    con.innerHTML='<span style="color:#888;font-size:12px;font-family:\'Press Start 2P\'">Nothing collected...</span>';
+    setTimeout(goToEndScreen,1200);return;
+  }
+  sortItems.forEach((item,i)=>{
+    const d=document.createElement('div');
+    d.className='q-item';d.textContent=TYPES[item.ti].emoji;d.dataset.idx=i;
+    d.draggable=true;
+    d.addEventListener('dragstart',e=>startDrag(e,i));
+    d.addEventListener('dragend',e=>{dragSrcIdx=-1;});
+    con.appendChild(d);item.el=d;
+  });
+  renderSortCanvas();
+}
+
+function startDrag(e,idx){
+  if(sortItems[idx].done){e.preventDefault();return;}
+  dragSrcIdx=idx;
+  e.dataTransfer.effectAllowed='move';
+  e.dataTransfer.setData('text/plain',String(idx));
+  const g=document.getElementById('dragGhost');
+  g.textContent=TYPES[sortItems[idx].ti].emoji;g.style.display='block';
+  e.dataTransfer.setDragImage(g,0,0);
+}
+function onBinDragOver(e,bi){e.preventDefault();e.dataTransfer.dropEffect='move';document.getElementById(`fpBin${bi}`).classList.add('drag-over');}
+function onBinDragLeave(bi){document.getElementById(`fpBin${bi}`).classList.remove('drag-over');}
+function onBinDrop(e,bi){
+  e.preventDefault();
+  document.getElementById(`fpBin${bi}`).classList.remove('drag-over');
+  const idx=parseInt(e.dataTransfer.getData('text/plain'));
+  if(isNaN(idx)||idx<0||idx>=sortItems.length||!sortItems[idx]||sortItems[idx].done)return;
+  resolveSort(idx,bi);
+}
+function onBinClick(bi){
+  if(bi<0||bi>3)return;
+}
+
+function resolveSort(itemIdx,bi){
+  if(itemIdx<0||itemIdx>=sortItems.length)return;
+  const item=sortItems[itemIdx];
+  if(!item||item.done)return;
+  
+  const correct=TYPES[item.ti].bin===bi;
+  item.done=true;
+  if(item.el){
+    item.el.classList.remove('held');
+    item.el.classList.add('sorted');
+  }
+  
+  const binEl=document.getElementById(`fpBin${bi}`);
+  if(!binEl)return;
+  
+  if(correct){
+    gameData.score+=20;sortCorrect++;binCounts[bi]++;
+    document.getElementById(`binCount${bi}`).textContent=binCounts[bi];
+    binEl.classList.add('correct-flash');
+    setTimeout(()=>binEl.classList.remove('correct-flash'),450);
+  } else {
+    gameData.score=Math.max(0,gameData.score-10);sortWrong++;
+    binEl.classList.add('wrong-flash');
+    setTimeout(()=>binEl.classList.remove('wrong-flash'),450);
+    showFact(TYPES[item.ti].fact);
+  }
+  
+  if(sortItems.every(it=>it.done)){
+    setTimeout(goToEndScreen,750);
+  }
+}
+
+function showFact(txt){
+  const t=document.getElementById('factToast');
+  document.getElementById('factText').textContent=txt;
+  t.classList.add('show');
+  if(factTmr)clearTimeout(factTmr);
+  factTmr=setTimeout(()=>t.classList.remove('show'),3600);
+}
+
+function goToEndScreen(){
+  const tot=gameData.collectedItems.length;
+  const acc=tot>0?sortCorrect/tot:0;
+  let grade='C';
+  if(acc>=.95)grade='S';else if(acc>=.80)grade='A';else if(acc>=.60)grade='B';
+  const b=document.getElementById('gradeBadge');
+  b.textContent=grade;b.className=`grade-badge grade-${grade}`;
+  document.getElementById('endStats').innerHTML=
+    `<strong>Score:</strong> ${gameData.score} pts<br>
+     <strong>Items Collected:</strong> ${tot}<br>
+     <strong>Correctly Sorted:</strong> ${sortCorrect} / ${tot}<br>
+     <strong>Wrong Sorts:</strong> ${sortWrong}`;
+  const s=sortCorrect;
+  document.getElementById('endMessage').innerHTML=
+    `🌍 You saved ${s} item${s!==1?'s':''} from pollution!<br>`+
+    (s>=10?'🌟 The city thanks you, eco-hero!':'💪 Keep collecting and sorting!')+'<br>'+
+    '♻️ Every sorted item makes a difference.';
+  document.getElementById('sortScreen').style.display='none';
+  document.getElementById('endScreen').style.display='flex';
+}
+
+function goHome(){
+  localStorage.removeItem('ecoGameData');
+  window.location.href='index.html';
+}
+
+function startSortPhase(){
+  sortAnimFrame=0;
+  buildSortQueue();
+  const animLoop=()=>{
+    if(document.getElementById('endScreen').style.display==='none'){
+      sortAnimFrame++;
+      renderSortCanvas();
+      setTimeout(animLoop,100);
+    }
+  };
+  animLoop();
+}
+
+window.addEventListener('load',()=>{
+  const data=localStorage.getItem('ecoGameData');
+  if(data){
+    gameData=JSON.parse(data);
+    startSortPhase();
+  } else {
+    window.location.href='index.html';
+  }
+});
+</script>
+</body>
+</html>

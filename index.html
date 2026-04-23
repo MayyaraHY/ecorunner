@@ -520,10 +520,11 @@ function updatePlayer(){
 // ═══════════════════════════════════════════
 //  TRASH WORLD ITEMS
 // ═══════════════════════════════════════════
-let worldTrash=[],spawnTimer=0,spawnInterval=90,frameCount=0;
+let worldTrash=[],spawnTimer=0,spawnInterval=90,frameCount=0,trashTypeRotate=0;
 
 function spawnTrash(){
-  const ti=Math.floor(Math.random()*4);
+  // Rotate through all 4 types to ensure all appear
+  const ti=(trashTypeRotate++)%4;
   const yPos=Math.random()<.5?GROUND_Y-TH-4:GROUND_Y-TH-54;
   worldTrash.push({x:CW+30,y:yPos,ti,col:false});
 }
@@ -594,7 +595,7 @@ function runGame(){
     } else {
       document.getElementById('hud').style.display='none';
       document.getElementById('controlsHint').style.display='none';
-      enterSortPhase();
+      showCollectionComplete();
     }
   }
   rafId=requestAnimationFrame(loop);
@@ -616,7 +617,7 @@ function startGame(){
   if(G.selChar<0)return;
   if(rafId){cancelAnimationFrame(rafId);rafId=null;}
   G.phase='game';G.score=0;G.collected=[];G.heldIdx=-1;
-  worldTrash=[];spawnTimer=0;spawnInterval=90;frameCount=0;
+  worldTrash=[];spawnTimer=0;spawnInterval=90;frameCount=0;trashTypeRotate=0;
   P={x:380,y:GROUND_Y-PH,velX:0,velY:0,onGround:true,frame:0,fTimer:0};
   bg.cX=0;bg.bX=0;bg.tX=0;
   showScreen(null);
@@ -628,6 +629,31 @@ function startGame(){
 function restartGame(){
   G.sortCorrect=0;G.sortWrong=0;G.binCounts=[0,0,0,0];G.heldIdx=-1;
   startGame();
+}
+
+function showCollectionComplete(){
+  G.phase='complete';
+  const wrapper=document.getElementById('gameWrapper');
+  const overlay=document.createElement('div');
+  overlay.id='completeOverlay';
+  overlay.style.cssText='position:absolute;inset:0;background:rgba(0,0,0,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:20;';
+  overlay.innerHTML=`
+    <div style="text-align:center;color:#fff;">
+      <div style="font-family:var(--pixel);font-size:24px;color:#4CAF50;margin-bottom:12px;text-shadow:0 0 20px #4CAF50;letter-spacing:2px;">TIME'S UP!</div>
+      <div style="font-family:var(--pixel);font-size:14px;color:#f1c40f;margin-bottom:24px;">${G.collected.length} items collected</div>
+      <button id="sortTrashBtn" style="font-family:var(--pixel);font-size:12px;background:#4CAF50;color:#fff;border:none;padding:16px 40px;border-radius:6px;cursor:pointer;transition:all .2s;letter-spacing:1px;" onmouseover="this.style.background='#43a047'" onmouseout="this.style.background='#4CAF50'">SORT TRASH →</button>
+    </div>
+  `;
+  wrapper.appendChild(overlay);
+  document.getElementById('sortTrashBtn').addEventListener('click',()=>{
+    // Save game data to localStorage and navigate to sort page
+    localStorage.setItem('ecoGameData',JSON.stringify({
+      selectedChar:G.selChar,
+      collectedItems:G.collected,
+      score:G.score
+    }));
+    window.location.href='sort.html';
+  });
 }
 
 // ═══════════════════════════════════════════
