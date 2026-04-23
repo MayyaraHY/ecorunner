@@ -18,12 +18,12 @@ body{
   min-height:100vh;font-family:var(--body);overflow:hidden;
 }
 #gameWrapper{
-  position:relative;width:800px;height:400px;
+  position:relative;width:1000px;height:500px;
   border:3px solid #fff;
   box-shadow:0 0 40px rgba(76,175,80,.4),0 0 80px rgba(76,175,80,.1);
   border-radius:4px;overflow:hidden;
 }
-canvas{display:block;}
+canvas{display:block;width:100%;height:100%;}
 
 /* SCREENS */
 .screen{
@@ -210,7 +210,7 @@ canvas{display:block;}
 </head>
 <body>
 <div id="gameWrapper">
-  <canvas id="gameCanvas" width="800" height="400"></canvas>
+  <canvas id="gameCanvas" width="1000" height="500"></canvas>
 
   <!-- HUD -->
   <div id="hud" style="display:none">
@@ -230,13 +230,11 @@ canvas{display:block;}
     <div class="char-cards">
       <div class="char-card" id="card0" onclick="selectChar(0)">
         <canvas class="char-canvas" id="charPreview0" width="64" height="64"></canvas>
-        <div class="char-name">ALEX</div>
-        <div class="char-desc">The eco-warrior. Ready to clean up the city!</div>
+        <div class="char-name">Monji</div>
       </div>
       <div class="char-card" id="card1" onclick="selectChar(1)">
         <canvas class="char-canvas" id="charPreview1" width="64" height="64"></canvas>
-        <div class="char-name">MAYA</div>
-        <div class="char-desc">The green scientist. Every item counts!</div>
+        <div class="char-name">fathia</div>
       </div>
     </div>
     <button class="btn-start" id="btnStart" onclick="startGame()" disabled>SELECT A CHARACTER</button>
@@ -314,14 +312,14 @@ canvas{display:block;}
 // ═══════════════════════════════════════════
 //  CONSTANTS
 // ═══════════════════════════════════════════
-const CW=800, CH=400, GROUND_Y=310;
+const CW=1000, CH=500, GROUND_Y=388;
 const PW=40, PH=62;
 const TW=32, TH=32;
 const PMIN=60, PMAX=700;
 const SCROLL_L=280, SCROLL_R=520; // center band – player moves; outside scrolls bg
 const GRAVITY=0.55, JUMP_FORCE=-13;
 const MOVE_SPD=4;
-const GAME_DUR=60*60; // frames
+const GAME_DUR=30*60; // frames
 
 const TYPES=[
   {type:'plastic',emoji:'🧴',bin:0,fact:'♻️ Plastic takes 400+ years to decompose in landfills.'},
@@ -520,11 +518,15 @@ function updatePlayer(){
 // ═══════════════════════════════════════════
 //  TRASH WORLD ITEMS
 // ═══════════════════════════════════════════
-let worldTrash=[],spawnTimer=0,spawnInterval=90,frameCount=0,trashTypeRotate=0;
+let worldTrash=[],spawnTimer=0,spawnInterval=90,frameCount=0,trashTypeCount=[0,0,0,0];
 
 function spawnTrash(){
-  // Rotate through all 4 types to ensure all appear
-  const ti=(trashTypeRotate++)%4;
+  // Randomize with bias towards underrepresented types
+  let ti;
+  const minCount=Math.min(...trashTypeCount);
+  const candidates=trashTypeCount.map((c,i)=>c===minCount?i:-1).filter(i=>i!==-1);
+  ti=candidates[Math.floor(Math.random()*candidates.length)];
+  trashTypeCount[ti]++;
   const yPos=Math.random()<.5?GROUND_Y-TH-4:GROUND_Y-TH-54;
   worldTrash.push({x:CW+30,y:yPos,ti,col:false});
 }
@@ -595,6 +597,7 @@ function runGame(){
     } else {
       document.getElementById('hud').style.display='none';
       document.getElementById('controlsHint').style.display='none';
+      worldTrash=[];
       showCollectionComplete();
     }
   }
@@ -617,7 +620,7 @@ function startGame(){
   if(G.selChar<0)return;
   if(rafId){cancelAnimationFrame(rafId);rafId=null;}
   G.phase='game';G.score=0;G.collected=[];G.heldIdx=-1;
-  worldTrash=[];spawnTimer=0;spawnInterval=90;frameCount=0;trashTypeRotate=0;
+  worldTrash=[];spawnTimer=0;spawnInterval=90;frameCount=0;trashTypeCount=[0,0,0,0];
   P={x:380,y:GROUND_Y-PH,velX:0,velY:0,onGround:true,frame:0,fTimer:0};
   bg.cX=0;bg.bX=0;bg.tX=0;
   showScreen(null);
@@ -813,7 +816,7 @@ function showFact(txt){
   document.getElementById('factText').textContent=txt;
   t.classList.add('show');
   if(factTmr)clearTimeout(factTmr);
-  factTmr=setTimeout(()=>t.classList.remove('show'),3600);
+  factTmr=setTimeout(()=>t.classList.remove('show'),1200);
 }
 
 // ═══════════════════════════════════════════
